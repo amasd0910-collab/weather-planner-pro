@@ -2,9 +2,13 @@ import streamlit as st
 import requests
 from datetime import datetime, timedelta
 import pandas as pd
-import plotly.graph_objects as go
-import plotly.express as px
-from plotly.subplots import make_subplots
+try:
+    import plotly.graph_objects as go
+    import plotly.express as px
+    from plotly.subplots import make_subplots
+except ImportError:
+    st.error("請先安裝 plotly: pip install plotly")
+    st.stop()
 import json
 
 # 頁面設定
