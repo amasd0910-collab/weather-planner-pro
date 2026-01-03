@@ -25,29 +25,3 @@ if st.button("查詢天氣"):
             st.error(f"錯誤: {e}")
     else:
         st.warning("請輸入 API Key")
-```
-
-這只有 25 行，**一定能跑**。先確認能啟動後，再慢慢加功能。
-
----
-
-## 📋 完整操作步驟
-
-### 在 GitHub 上：
-
-1. **進入你的 `weather-planner-app` 儲存庫**
-
-2. **編輯 app.py**：
-   - 點擊 `app.py`
-   - 點右上角的鉛筆圖示 ✏️
-   - **全選刪除舊內容**（Ctrl+A，Delete）
-   - **貼上上面 25 行的程式碼**
-   - 點擊 "Commit changes"
-
-3. **檢查 requirements.txt**：
-   - 點擊 `requirements.txt`
-   - 確認只有三行：
-```
-     streamlit
-     requests
-     pandas
