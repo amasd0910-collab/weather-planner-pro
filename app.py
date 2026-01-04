@@ -1,4 +1,4 @@
-import streamlit as st
+    import streamlit as st
 import requests
 from datetime import datetime
 import pandas as pd
@@ -119,14 +119,14 @@ with st.expander("進階設定"):
 @st.cache_data(ttl=1800)
 def get_weather_forecast(lat, lon, api_key, days):
 try:
-base_url = "http://api.openweathermap.org/data/2.5/forecast"
-params = {
-"lat": lat,
-"lon": lon,
-"appid": api_key,
-"units": "metric",
-"lang": "zh_tw"
-}
+    base_url = "http://api.openweathermap.org/data/2.5/forecast"
+    params = {
+    "lat": lat,
+    "lon": lon,
+    "appid": api_key,
+    "units": "metric",
+    "lang": "zh_tw"
+    }
 url = base_url + "?lat=" + str(lat) + "&lon=" + str(lon) + "&appid=" + api_key + "&units=metric&lang=zh_tw"
 response = requests.get(url, timeout=10)
 
