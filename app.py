@@ -13,7 +13,7 @@ layout="wide"
 
 # 自定義樣式
 
-st.markdown(”””
+st.markdown("""
 
 <style>
     .main-title {
@@ -30,7 +30,7 @@ st.markdown(”””
     }
 </style>
 
-“””, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
 st.markdown(’<p class="main-title">🗺️ 台灣天氣旅遊規劃助手</p>’, unsafe_allow_html=True)
 st.markdown(’<p class="subtitle">根據天氣預報，為您規劃最適合的台灣旅遊行程</p>’, unsafe_allow_html=True)
@@ -38,48 +38,48 @@ st.markdown(’<p class="subtitle">根據天氣預報，為您規劃最適合的
 # 台灣主要城市資料
 
 TAIWAN_CITIES = {
-“台北”: {“en”: “Taipei”, “lat”: 25.0330, “lon”: 121.5654},
-“新北”: {“en”: “New Taipei”, “lat”: 25.0120, “lon”: 121.4659},
-“桃園”: {“en”: “Taoyuan”, “lat”: 24.9936, “lon”: 121.3010},
-“台中”: {“en”: “Taichung”, “lat”: 24.1477, “lon”: 120.6736},
-“台南”: {“en”: “Tainan”, “lat”: 22.9998, “lon”: 120.2269},
-“高雄”: {“en”: “Kaohsiung”, “lat”: 22.6273, “lon”: 120.3014},
-“基隆”: {“en”: “Keelung”, “lat”: 25.1276, “lon”: 121.7392},
-“新竹”: {“en”: “Hsinchu”, “lat”: 24.8138, “lon”: 120.9675},
-“嘉義”: {“en”: “Chiayi”, “lat”: 23.4801, “lon”: 120.4491},
-“宜蘭”: {“en”: “Yilan”, “lat”: 24.7022, “lon”: 121.7378},
-“花蓮”: {“en”: “Hualien”, “lat”: 23.9871, “lon”: 121.6015},
-“台東”: {“en”: “Taitung”, “lat”: 22.7583, “lon”: 121.1444},
-“屏東”: {“en”: “Pingtung”, “lat”: 22.6820, “lon”: 120.4818},
-“南投”: {“en”: “Nantou”, “lat”: 23.9609, “lon”: 120.9719}
+"台北": {"en": "Taipei", "lat": 25.0330, "lon": 121.5654},
+"新北": {"en": "New Taipei", "lat": 25.0120, "lon": 121.4659},
+"桃園": {"en": "Taoyuan", "lat": 24.9936, "lon": 121.3010},
+"台中": {"en": "Taichung", "lat": 24.1477, "lon": 120.6736},
+"台南": {"en": "Tainan", "lat": 22.9998, "lon": 120.2269},
+"高雄": {"en": "Kaohsiung", "lat": 22.6273, "lon": 120.3014},
+"基隆": {"en": "Keelung", "lat": 25.1276, "lon": 121.7392},
+"新竹": {"en": "Hsinchu", "lat": 24.8138, "lon": 120.9675},
+"嘉義": {"en": "Chiayi", "lat": 23.4801, "lon": 120.4491},
+"宜蘭": {"en": "Yilan", "lat": 24.7022, "lon": 121.7378},
+"花蓮": {"en": "Hualien", "lat": 23.9871, "lon": 121.6015},
+"台東": {"en": "Taitung", "lat": 22.7583, "lon": 121.1444},
+"屏東": {"en": "Pingtung", "lat": 22.6820, "lon": 120.4818},
+"南投": {"en": "Nantou", "lat": 23.9609, "lon": 120.9719}
 }
 
 # 旅遊活動類型
 
 ACTIVITY_TYPES = {
-“🏖️ 海邊活動”: [“衝浪”, “游泳”, “海釣”, “沙灘排球”, “潛水”],
-“⛰️ 山區健行”: [“登山”, “森林步道”, “賞楓”, “露營”, “生態觀察”],
-“🏛️ 文化古蹟”: [“寺廟參拜”, “古蹟巡禮”, “博物館”, “藝文中心”],
-“🍜 美食探索”: [“夜市小吃”, “老街美食”, “特色餐廳”, “咖啡廳”],
-“🛍️ 購物休閒”: [“百貨公司”, “商圈逛街”, “市集”, “outlet”],
-“🎡 遊樂園區”: [“主題樂園”, “動物園”, “水族館”, “遊樂設施”],
-“🚴 戶外運動”: [“自行車”, “路跑”, “球類運動”, “攀岩”],
-“♨️ 溫泉度假”: [“泡溫泉”, “SPA”, “度假村”, “民宿體驗”],
-“📸 攝影景點”: [“網美景點”, “日出日落”, “風景攝影”, “建築攝影”]
+"🏖️ 海邊活動": ["衝浪", "游泳", "海釣", "沙灘排球", "潛水"],
+"⛰️ 山區健行": ["登山", "森林步道", "賞楓", "露營", "生態觀察"],
+"🏛️ 文化古蹟": ["寺廟參拜", "古蹟巡禮", "博物館", "藝文中心"],
+"🍜 美食探索": ["夜市小吃", "老街美食", "特色餐廳", "咖啡廳"],
+"🛍️ 購物休閒": ["百貨公司", "商圈逛街", "市集", "outlet"],
+"🎡 遊樂園區": ["主題樂園", "動物園", "水族館", "遊樂設施"],
+"🚴 戶外運動": ["自行車", "路跑", "球類運動", "攀岩"],
+"♨️ 溫泉度假": ["泡溫泉", "SPA", "度假村", "民宿體驗"],
+"📸 攝影景點": ["網美景點", "日出日落", "風景攝影", "建築攝影"]
 }
 
 # 安全地讀取 API Key
 
 try:
-api_key = st.secrets[“OPENWEATHER_API_KEY”]
+api_key = st.secrets["OPENWEATHER_API_KEY"]
 except:
-st.error(“❌ 系統設定錯誤，請確認 API Key 已正確設定”)
+st.error("❌ 系統設定錯誤，請確認 API Key 已正確設定")
 st.stop()
 
 # 側邊欄設定
 
 with st.sidebar:
-st.header(“⚙️ 旅遊偏好設定”)
+st.header("⚙️ 旅遊偏好設定")
 
 ```
 # 地區選擇
@@ -141,7 +141,7 @@ with st.expander("🔧 進階設定"):
 @st.cache_data(ttl=1800)
 def get_weather_forecast(lat, lon, api_key, days):
 try:
-url = f”http://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={api_key}&units=metric&lang=zh_tw”
+url = f"http://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={api_key}&units=metric&lang=zh_tw"
 response = requests.get(url, timeout=10)
 
 ```
@@ -155,9 +155,9 @@ except Exception as e:
 ```
 
 def parse_temp_preference(pref):
-if “怕熱” in pref:
+if "怕熱" in pref:
 return (10, 25)
-elif “適中” in pref:
+elif "適中" in pref:
 return (20, 28)
 else:
 return (20, 35)
@@ -372,7 +372,7 @@ return daily_data[:days]
 
 # 主要執行
 
-if st.button(“🚀 開始規劃旅遊”, type=“primary”, use_container_width=True):
+if st.button("🚀 開始規劃旅遊", type="primary", use_container_width=True):
 city_info = TAIWAN_CITIES[selected_city]
 temp_range = parse_temp_preference(temp_preference)
 
@@ -525,9 +525,9 @@ with st.spinner(f"正在分析 {selected_city} 未來 {forecast_days} 天的天�
 
 # 使用說明
 
-st.markdown(”—”)
-with st.expander(“📖 使用指南”):
-st.markdown(”””
+st.markdown("—")
+with st.expander("📖 使用指南"):
+st.markdown("""
 ### 🎯 如何使用
 
 ```
@@ -560,5 +560,5 @@ st.markdown(”””
 """)
 ```
 
-st.markdown(”—”)
-st.caption(“🗺️ 台灣天氣旅遊規劃助手 | Made with ❤️ using Streamlit | Powered by OpenWeatherMap”)
+st.markdown("—")
+st.caption("🗺️ 台灣天氣旅遊規劃助手 | Made with ❤️ using Streamlit | Powered by OpenWeatherMap")
