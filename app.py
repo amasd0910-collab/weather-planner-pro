@@ -118,15 +118,15 @@ with st.expander("進階設定"):
 
 @st.cache_data(ttl=1800)
 def get_weather_forecast(lat, lon, api_key, days):
-try:
-    base_url = "http://api.openweathermap.org/data/2.5/forecast"
-    params = {
-    "lat": lat,
-    "lon": lon,
-    "appid": api_key,
-    "units": "metric",
-    "lang": "zh_tw"
-    }
+    try:
+        base_url = "http://api.openweathermap.org/data/2.5/forecast"
+        params = {
+        "lat": lat,
+        "lon": lon,
+        "appid": api_key,
+        "units": "metric",
+        "lang": "zh_tw"
+        }
 url = base_url + "?lat=" + str(lat) + "&lon=" + str(lon) + "&appid=" + api_key + "&units=metric&lang=zh_tw"
 response = requests.get(url, timeout=10)
 
