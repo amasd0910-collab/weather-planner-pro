@@ -1,557 +1,368 @@
 import streamlit as st
 import requests
-from datetime import datetime
-import pandas as pd
+from datetime import datetime, timedelta
+from urllib.parse import quote_plus
 
-st.set_page_config(
-    page_title="Taiwan Travel Planner",
-    page_icon="🗺️",
-    layout="wide",
-)
+# -----------------------
+# Page
+# -----------------------
+st.set_page_config(page_title="台灣天氣旅遊規劃助手", page_icon="🗺️", layout="wide")
 
 st.markdown(
     """
 <style>
-    .main-title {
-        font-size: 2.5rem;
-        font-weight: bold;
-        color: #1E88E5;
-        text-align: center;
-        margin-bottom: 10px;
-    }
-    .subtitle {
-        text-align: center;
-        color: #666;
-        margin-bottom: 30px;
-    }
+    .main-title {font-size: 2.2rem; font-weight: 800; text-align:center; margin: 6px 0 0 0;}
+    .subtitle {text-align:center; opacity:0.75; margin: 6px 0 18px 0;}
+    .pill {display:inline-block; padding:2px 10px; border-radius:999px; border:1px solid rgba(255,255,255,0.15); margin-right:6px;}
 </style>
 """,
     unsafe_allow_html=True,
 )
+st.markdown("<div class='main-title'>🗺️ 台灣天氣旅遊規劃助手</div>", unsafe_allow_html=True)
+st.markdown("<div class='subtitle'>用天氣預報把行程拆到上半天 / 下半天，並提供雨天備案</div>", unsafe_allow_html=True)
 
-st.markdown("<p class='main-title'>🗺️ 台灣天氣旅遊規劃助手</p>", unsafe_allow_html=True)
-st.markdown("<p class='subtitle'>根據天氣預報，為您規劃最適合的台灣旅遊行程</p>", unsafe_allow_html=True)
-
-TAIWAN_CITIES = {
-    "台北": {"en": "Taipei", "lat": 25.0330, "lon": 121.5654},
-    "新北": {"en": "New Taipei", "lat": 25.0120, "lon": 121.4659},
-    "桃園": {"en": "Taoyuan", "lat": 24.9936, "lon": 121.3010},
-    "台中": {"en": "Taichung", "lat": 24.1477, "lon": 120.6736},
-    "台南": {"en": "Tainan", "lat": 22.9998, "lon": 120.2269},
-    "高雄": {"en": "Kaohsiung", "lat": 22.6273, "lon": 120.3014},
-    "基隆": {"en": "Keelung", "lat": 25.1276, "lon": 121.7392},
-    "新竹": {"en": "Hsinchu", "lat": 24.8138, "lon": 120.9675},
-    "嘉義": {"en": "Chiayi", "lat": 23.4801, "lon": 120.4491},
-    "宜蘭": {"en": "Yilan", "lat": 24.7022, "lon": 121.7378},
-    "花蓮": {"en": "Hualien", "lat": 23.9871, "lon": 121.6015},
-    "台東": {"en": "Taitung", "lat": 22.7583, "lon": 121.1444},
-    "屏東": {"en": "Pingtung", "lat": 22.6820, "lon": 120.4818},
-    "南投": {"en": "Nantou", "lat": 23.9609, "lon": 120.9719},
+# -----------------------
+# Data (先以北台灣為主)
+# -----------------------
+NORTH_TW = {
+    "台北": {"lat": 25.0330, "lon": 121.5654},
+    "新北": {"lat": 25.0120, "lon": 121.4659},
+    "基隆": {"lat": 25.1276, "lon": 121.7392},
+    "桃園": {"lat": 24.9936, "lon": 121.3010},
+    "宜蘭": {"lat": 24.7022, "lon": 121.7378},
+    "新竹": {"lat": 24.8138, "lon": 120.9675},
 }
 
 ACTIVITY_TYPES = {
-    "🏖️ 海邊活動": ["衝浪", "游泳", "海釣", "沙灘排球", "潛水"],
-    "⛰️ 山區健行": ["登山", "森林步道", "賞楓", "露營", "生態觀察"],
-    "🏛️ 文化古蹟": ["寺廟參拜", "古蹟巡禮", "博物館", "藝文中心"],
     "🍜 美食探索": ["夜市小吃", "老街美食", "特色餐廳", "咖啡廳"],
+    "🏛️ 文化古蹟": ["博物館", "古蹟巡禮", "藝文中心", "寺廟參拜"],
+    "🏖️ 海邊活動": ["海邊散步", "看海咖啡", "衝浪", "海釣"],
+    "⛰️ 山區健行": ["森林步道", "登山健行", "觀景平台", "露營"],
     "🛍️ 購物休閒": ["百貨公司", "商圈逛街", "市集", "outlet"],
-    "🎡 遊樂園區": ["主題樂園", "動物園", "水族館", "遊樂設施"],
-    "🚴 戶外運動": ["自行車", "路跑", "球類運動", "攀岩"],
-    "♨️ 溫泉度假": ["泡溫泉", "SPA", "度假村", "民宿體驗"],
-    "📸 攝影景點": ["網美景點", "日出日落", "風景攝影", "建築攝影"],
+    "♨️ 溫泉度假": ["泡溫泉", "溫泉飯店", "湯屋", "SPA"],
 }
 
-# --- API KEY ---
+# -----------------------
+# Secrets
+# -----------------------
 try:
-    api_key = st.secrets["OPENWEATHER_API_KEY"]
+    OW_KEY = st.secrets["OPENWEATHER_API_KEY"]
 except Exception:
-    st.error("系統設定錯誤，請確認 API Key 已正確設定（st.secrets['OPENWEATHER_API_KEY']）")
+    st.error("缺少 OPENWEATHER_API_KEY。請在 Streamlit secrets 設定後再試。")
     st.stop()
 
-# --- Sidebar UI ---
+# -----------------------
+# Sidebar (用 form 避免手機操作混亂)
+# -----------------------
 with st.sidebar:
-    st.header("旅遊偏好設定")
+    st.header("設定")
 
-    st.subheader("目的地")
-    selected_city = st.selectbox(
-        "選擇縣市",
-        options=list(TAIWAN_CITIES.keys()),
-        help="選擇您想去的台灣縣市",
-    )
+    with st.form("planner_form"):
+        selected_cities = st.multiselect(
+            "選擇城市（可多選）",
+            options=list(NORTH_TW.keys()),
+            default=["台北", "新北"],
+            help="簡易版先以北台灣城市為主；多城市會輪流分配行程。",
+        )
 
-    st.subheader("規劃天數")
-    forecast_days = st.radio(
-        "選擇預測天數",
-        options=[5, 10],
-        format_func=lambda x: f"{x} 天預報",
-        help="提醒：OpenWeatherMap 的 /forecast 主要是 5 天資料；10 天會自動降為 5 天處理",
-    )
+        forecast_window = st.radio(
+            "預報視窗（資料限制提醒）",
+            options=[5, 10],
+            index=0,
+            format_func=lambda x: f"{x} 天（/forecast 實際約 5 天）",
+        )
 
-    st.markdown("---")
+        trip_days = st.number_input(
+            "你要規劃幾天旅遊？",
+            min_value=1,
+            max_value=10,
+            value=3,
+            step=1,
+        )
 
-    st.subheader("旅遊偏好")
-    selected_activities = st.multiselect(
-        "喜歡的活動類型",
-        options=list(ACTIVITY_TYPES.keys()),
-        default=["🍜 美食探索", "🏛️ 文化古蹟"],
-        help="選擇您喜歡的旅遊活動類型",
-    )
+        st.markdown("---")
 
-    st.subheader("天氣偏好")
-    temp_options = ["怕熱", "適中", "不怕熱"]
-    temp_preference = st.select_slider(
-        "溫度偏好",
-        options=temp_options,
-        value="適中",
-    )
+        selected_activity_types = st.multiselect(
+            "偏好活動類型",
+            options=list(ACTIVITY_TYPES.keys()),
+            default=["🍜 美食探索", "🏛️ 文化古蹟"],
+        )
 
-    rain_tolerance = st.slider(
-        "降雨容忍度",
-        min_value=0,
-        max_value=100,
-        value=30,
-        help="降雨機率超過此值會降低推薦度",
-    )
+        rain_threshold = st.slider(
+            "雨天分水嶺（降雨機率%）",
+            min_value=0,
+            max_value=100,
+            value=40,
+            help="高於此值，該半天改走雨天備案（室內為主）。",
+        )
 
-    st.markdown("---")
+        temp_pref = st.select_slider(
+            "溫度偏好",
+            options=["怕熱", "適中", "不怕熱"],
+            value="適中",
+        )
 
-    with st.expander("進階設定"):
-        show_all_days = st.checkbox("顯示所有天數", value=False)
-        sort_by_score = st.checkbox("依適合度排序", value=True)
+        # 路線（不用 Google API，直接產連結）
+        st.markdown("---")
+        origin_text = st.text_input("路線起點（可輸入：新北市貢寮區）", value="")
+        dest_text = st.text_input("路線終點（可輸入：宜蘭縣頭城鎮）", value="")
+        waypoints_text = st.text_input("中途點（用逗號分隔，可留空）", value="")
 
+        submitted = st.form_submit_button("開始規劃", use_container_width=True)
 
-@st.cache_data(ttl=1800)
-def get_weather_forecast(lat, lon, api_key, days):
-    """
-    使用 OpenWeatherMap 5-day/3-hour forecast API
-    注意：此 endpoint 實際上只提供約 5 天資料
-    """
-    try:
-        if days > 5:
-            # 不讓程式炸掉，但也誠實提醒
-            days = 5
-
-        base_url = "https://api.openweathermap.org/data/2.5/forecast"
-        params = {
-            "lat": lat,
-            "lon": lon,
-            "appid": api_key,
-            "units": "metric",
-            "lang": "zh_tw",
-        }
-
-        response = requests.get(base_url, params=params, timeout=10)
-        response.raise_for_status()
-        return response.json()
-
-    except Exception as e:
-        st.error("錯誤: " + str(e))
-        return None
-
-
-def parse_temp_preference(pref):
+# -----------------------
+# Helpers
+# -----------------------
+def temp_range(pref: str):
     if pref == "怕熱":
         return (10, 25)
-    elif pref == "適中":
-        return (20, 28)
-    else:
-        return (20, 35)
+    if pref == "適中":
+        return (18, 28)
+    return (18, 35)
 
 
-def calculate_weather_score(temp, rain_prob, wind_speed, temp_range, rain_tolerance):
+def score_halfday(avg_temp, rain_prob, wind_speed, trange, rain_tol):
+    # 先沿用你原來的思路（簡易版：好天氣+10、偏離扣分、雨太大扣分、風太大扣分）
     score = 100
-
-    if temp < temp_range[0]:
-        score = score - (temp_range[0] - temp) * 3
-    elif temp > temp_range[1]:
-        score = score - (temp - temp_range[1]) * 3
+    if avg_temp < trange[0]:
+        score -= (trange[0] - avg_temp) * 3
+    elif avg_temp > trange[1]:
+        score -= (avg_temp - trange[1]) * 3
     else:
-        score = score + 10
+        score += 10
 
-    if rain_prob > rain_tolerance:
-        score = score - (rain_prob - rain_tolerance) * 1.5
+    if rain_prob > rain_tol:
+        score -= (rain_prob - rain_tol) * 1.5
 
     if wind_speed > 10:
-        score = score - (wind_speed - 10) * 2
+        score -= (wind_speed - 10) * 2
 
     return max(0, min(100, score))
 
 
-def recommend_activities(score, temp, rain_prob, wind_speed, selected_activities):
-    recommendations = []
-    reasons = []
+@st.cache_data(ttl=1800)
+def fetch_forecast(lat, lon, api_key):
+    base_url = "https://api.openweathermap.org/data/2.5/forecast"
+    params = {"lat": lat, "lon": lon, "appid": api_key, "units": "metric", "lang": "zh_tw"}
+    r = requests.get(base_url, params=params, timeout=10)
+    r.raise_for_status()
+    return r.json()
 
-    if score >= 85:
-        level = "極佳"
-        base_desc = "天氣極佳！"
-    elif score >= 70:
-        level = "良好"
-        base_desc = "天氣不錯"
-    elif score >= 50:
-        level = "普通"
-        base_desc = "天氣尚可"
-    else:
-        level = "不佳"
-        base_desc = "天氣較差"
 
-    for activity_type in selected_activities:
-        activities = ACTIVITY_TYPES[activity_type]
-        act_str = activities[0] + ", " + activities[1] + ", " + activities[2]
+def local_dt(item_dt_utc, tz_offset_sec):
+    # OpenWeather 會給 city.timezone（秒）
+    return datetime.utcfromtimestamp(item_dt_utc + tz_offset_sec)
 
-        if activity_type == "🏖️ 海邊活動":
-            if score >= 70 and temp >= 25 and wind_speed < 8:
-                recommendations.append(activity_type + ": " + act_str)
-                reasons.append("陽光充足、風浪適中")
 
-        elif activity_type == "⛰️ 山區健行":
-            if score >= 60 and temp < 30 and rain_prob < 40:
-                recommendations.append(activity_type + ": " + act_str)
-                reasons.append("溫度舒適、不會太熱")
+def build_halfday_table(weather_json, days_limit=5):
+    """
+    取 06-12 作 AM，12-18 作 PM，聚合成半天。
+    回傳：dict[date_str][period] = stats
+    """
+    tz = weather_json.get("city", {}).get("timezone", 0)
 
-        elif activity_type == "🏛️ 文化古蹟":
-            if score >= 40:
-                recommendations.append(activity_type + ": " + act_str)
-                reasons.append("室內為主，較不受天氣影響")
+    buckets = {}  # date -> period -> accum
+    horizon_end = datetime.utcnow() + timedelta(days=days_limit + 1)
 
-        elif activity_type == "🍜 美食探索":
-            if score >= 30:
-                recommendations.append(activity_type + ": " + act_str)
-                reasons.append("隨時都是美食時間！")
+    for it in weather_json["list"]:
+        dt_local = local_dt(it["dt"], tz)
+        if dt_local > horizon_end:
+            continue
 
-        elif activity_type == "🛍️ 購物休閒":
-            recommendations.append(activity_type + ": " + act_str)
-            reasons.append("室內活動，不受天氣限制")
-
-        elif activity_type == "🎡 遊樂園區":
-            if score >= 65 and rain_prob < 50:
-                recommendations.append(activity_type + ": " + act_str)
-                reasons.append("戶外設施較多，需好天氣")
-
-        elif activity_type == "🚴 戶外運動":
-            if score >= 75 and temp < 32 and wind_speed < 10:
-                recommendations.append(activity_type + ": " + act_str)
-                reasons.append("適合運動的天氣條件")
-
-        elif activity_type == "♨️ 溫泉度假":
-            if temp < 25 or rain_prob > 50:
-                recommendations.append(activity_type + ": " + act_str)
-                reasons.append("涼爽或雨天更適合泡湯")
-
-        elif activity_type == "📸 攝影景點":
-            if score >= 70 and rain_prob < 30:
-                recommendations.append(activity_type + ": " + act_str)
-                reasons.append("能見度佳，光線充足")
-
-    if len(recommendations) == 0:
-        if rain_prob > 70:
-            recommendations.append("室內活動：博物館、購物中心、美食街")
-            reasons.append("下雨天建議室內活動")
-        elif temp > 33:
-            recommendations.append("避暑活動：游泳池、有冷氣的地方、夜間活動")
-            reasons.append("天氣炎熱，注意防曬")
+        hour = dt_local.hour
+        if 6 <= hour < 12:
+            period = "AM"
+        elif 12 <= hour < 18:
+            period = "PM"
         else:
-            recommendations.append("輕鬆活動：咖啡廳、室內景點、購物")
-            reasons.append("天氣一般，建議輕鬆行程")
+            continue
 
-    warnings = []
-    if rain_prob > 60:
-        warnings.append("建議攜帶雨具")
-    if temp > 32:
-        warnings.append("高溫警報，注意防曬補水")
-    if temp < 15:
-        warnings.append("氣溫較低，記得保暖")
-    if wind_speed > 12:
-        warnings.append("風速較大，戶外活動注意安全")
+        date_key = dt_local.strftime("%Y-%m-%d")
+        buckets.setdefault(date_key, {})
+        buckets[date_key].setdefault(period, {"temps": [], "pop": [], "wind": [], "desc": []})
 
-    return level, base_desc, recommendations, reasons, warnings
+        buckets[date_key][period]["temps"].append(it["main"]["temp"])
+        buckets[date_key][period]["pop"].append(it.get("pop", 0) * 100)  # 0-1 -> %
+        buckets[date_key][period]["wind"].append(it["wind"]["speed"])
+        buckets[date_key][period]["desc"].append(it["weather"][0]["description"])
 
-
-def process_forecast_data(weather_data, days, temp_range, rain_tolerance, selected_activities):
-    daily_data = []
-    current_date = None
-    daily_records = {
-        "temps": [],
-        "rain": [],
-        "wind": [],
-        "humidity": [],
-        "descriptions": [],
-    }
-
-    max_items = days * 8  # 3hr * 8 = 24hr
-    item_count = 0
-
-    for item in weather_data["list"]:
-        if item_count >= max_items:
-            break
-        item_count = item_count + 1
-
-        dt = datetime.fromtimestamp(item["dt"])
-        date = dt.date()
-
-        if current_date != date:
-            if current_date and len(daily_records["temps"]) > 0:
-                avg_temp = sum(daily_records["temps"]) / len(daily_records["temps"])
-                max_temp = max(daily_records["temps"])
-                min_temp = min(daily_records["temps"])
-                avg_rain = sum(daily_records["rain"]) / len(daily_records["rain"]) * 100
-                avg_wind = sum(daily_records["wind"]) / len(daily_records["wind"])
-                avg_humidity = sum(daily_records["humidity"]) / len(daily_records["humidity"])
-
-                score = calculate_weather_score(avg_temp, avg_rain, avg_wind, temp_range, rain_tolerance)
-                level, desc, activities, reasons, warnings = recommend_activities(
-                    score, avg_temp, avg_rain, avg_wind, selected_activities
-                )
-
-                weekdays = ["週一", "週二", "週三", "週四", "週五", "週六", "週日"]
-                weekday = weekdays[current_date.weekday()]
-
-                desc_counts = {}
-                for d in daily_records["descriptions"]:
-                    desc_counts[d] = desc_counts.get(d, 0) + 1
-                most_common_desc = max(desc_counts, key=desc_counts.get)
-
-                daily_data.append(
-                    {
-                        "date": current_date,
-                        "weekday": weekday,
-                        "temp_avg": avg_temp,
-                        "temp_max": max_temp,
-                        "temp_min": min_temp,
-                        "rain_prob": avg_rain,
-                        "wind_speed": avg_wind,
-                        "humidity": avg_humidity,
-                        "description": most_common_desc,
-                        "score": score,
-                        "level": level,
-                        "desc": desc,
-                        "activities": activities,
-                        "reasons": reasons,
-                        "warnings": warnings,
-                    }
-                )
-
-            current_date = date
-            daily_records = {
-                "temps": [],
-                "rain": [],
-                "wind": [],
-                "humidity": [],
-                "descriptions": [],
-            }
-
-        daily_records["temps"].append(item["main"]["temp"])
-
-        pop_value = item.get("pop", 0)
-        daily_records["rain"].append(pop_value)
-
-        daily_records["wind"].append(item["wind"]["speed"])
-        daily_records["humidity"].append(item["main"]["humidity"])
-        daily_records["descriptions"].append(item["weather"][0]["description"])
-
-    if len(daily_records["temps"]) > 0 and current_date is not None:
-        avg_temp = sum(daily_records["temps"]) / len(daily_records["temps"])
-        max_temp = max(daily_records["temps"])
-        min_temp = min(daily_records["temps"])
-        avg_rain = sum(daily_records["rain"]) / len(daily_records["rain"]) * 100
-        avg_wind = sum(daily_records["wind"]) / len(daily_records["wind"])
-        avg_humidity = sum(daily_records["humidity"]) / len(daily_records["humidity"])
-
-        score = calculate_weather_score(avg_temp, avg_rain, avg_wind, temp_range, rain_tolerance)
-        level, desc, activities, reasons, warnings = recommend_activities(
-            score, avg_temp, avg_rain, avg_wind, selected_activities
-        )
-
-        weekdays = ["週一", "週二", "週三", "週四", "週五", "週六", "週日"]
-        weekday = weekdays[current_date.weekday()]
-
-        desc_counts = {}
-        for d in daily_records["descriptions"]:
-            desc_counts[d] = desc_counts.get(d, 0) + 1
-        most_common_desc = max(desc_counts, key=desc_counts.get)
-
-        daily_data.append(
-            {
-                "date": current_date,
-                "weekday": weekday,
-                "temp_avg": avg_temp,
-                "temp_max": max_temp,
-                "temp_min": min_temp,
-                "rain_prob": avg_rain,
-                "wind_speed": avg_wind,
-                "humidity": avg_humidity,
-                "description": most_common_desc,
-                "score": score,
-                "level": level,
-                "desc": desc,
-                "activities": activities,
-                "reasons": reasons,
-                "warnings": warnings,
-            }
-        )
-
-    return daily_data[:days]
-
-
-# --- Main Action ---
-if st.button("開始規劃旅遊", type="primary", use_container_width=True):
-    city_info = TAIWAN_CITIES[selected_city]
-    temp_range = parse_temp_preference(temp_preference)
-
-    # /forecast 本質最多約 5 天
-    real_days = forecast_days
-    if forecast_days > 5:
-        real_days = 5
-        st.info("提醒：OpenWeatherMap /forecast 主要提供 5 天預報，本次以 5 天資料做分析。")
-
-    with st.spinner(f"正在分析 {selected_city} 未來 {real_days} 天的天氣..."):
-        weather_data = get_weather_forecast(city_info["lat"], city_info["lon"], api_key, real_days)
-
-        if weather_data:
-            forecasts = process_forecast_data(weather_data, real_days, temp_range, rain_tolerance, selected_activities)
-
-            if sort_by_score:
-                sorted_forecasts = sorted(forecasts, key=lambda x: x["score"], reverse=True)
-            else:
-                sorted_forecasts = forecasts
-
-            if not show_all_days:
-                display_forecasts = [f for f in sorted_forecasts if f["score"] >= 40]
-            else:
-                display_forecasts = sorted_forecasts
-
-            st.success(f"已完成 {selected_city} 的旅遊規劃分析！")
-
-            st.markdown("---")
-            st.subheader("整體分析")
-
-            col1, col2, col3, col4 = st.columns(4)
-
-            with col1:
-                best_day = sorted_forecasts[0]
-                date_str = best_day["date"].strftime("%m/%d")
-                st.metric("最佳出遊日", f"{date_str} {best_day['weekday']}", delta=f"評分 {int(best_day['score'])}")
-
-            with col2:
-                avg_temp = sum(f["temp_avg"] for f in forecasts) / len(forecasts)
-                st.metric("平均溫度", f"{avg_temp:.1f}°C")
-
-            with col3:
-                good_days = sum(1 for f in forecasts if f["score"] >= 70)
-                st.metric("適合出遊天數", f"{good_days}/{real_days} 天")
-
-            with col4:
-                avg_rain = sum(f["rain_prob"] for f in forecasts) / len(forecasts)
-                st.metric("平均降雨機率", f"{int(avg_rain)}%")
-
-            st.markdown("---")
-            st.subheader(f"{selected_city} 旅遊推薦行程")
-
-            if len(display_forecasts) == 0:
-                st.warning("根據您的偏好，這段期間沒有特別推薦的日期。建議調整偏好設定或查看所有天數。")
-            else:
-                for i, forecast in enumerate(display_forecasts):
-                    rank = i + 1
-
-                    if forecast["score"] >= 80:
-                        color = "🟢"
-                    elif forecast["score"] >= 60:
-                        color = "🟡"
-                    elif forecast["score"] >= 40:
-                        color = "🟠"
-                    else:
-                        color = "🔴"
-
-                    date_display = forecast["date"].strftime("%m月%d日")
-                    score_display = str(int(forecast["score"]))
-                    expander_title = (
-                        f"{color} 推薦 #{rank}：{date_display} {forecast['weekday']} - "
-                        f"{forecast['level']} (評分 {score_display})"
-                    )
-
-                    with st.expander(expander_title, expanded=(rank <= 2)):
-                        c1, c2, c3, c4 = st.columns(4)
-
-                        with c1:
-                            st.metric("溫度", f"{forecast['temp_avg']:.1f}°C")
-                            st.caption(f"{int(forecast['temp_min'])}~{int(forecast['temp_max'])}°C")
-                        with c2:
-                            st.metric("降雨機率", f"{int(forecast['rain_prob'])}%")
-                        with c3:
-                            st.metric("風速", f"{forecast['wind_speed']:.1f} m/s")
-                        with c4:
-                            st.metric("濕度", f"{int(forecast['humidity'])}%")
-
-                        st.write(f"**天氣：** {forecast['description']} | {forecast['desc']}")
-
-                        if len(forecast["warnings"]) > 0:
-                            st.warning("**注意事項**")
-                            for w in forecast["warnings"]:
-                                st.write("- " + w)
-
-                        if len(forecast["activities"]) > 0:
-                            st.success("**推薦行程**")
-                            for j in range(len(forecast["activities"])):
-                                st.write("**" + forecast["activities"][j] + "**")
-                                st.caption(forecast["reasons"][j])
-                        else:
-                            st.info("建議選擇室內活動或彈性安排")
-
-            st.markdown("---")
-            st.subheader("匯出規劃")
-
-            export_data = []
-            for f in sorted_forecasts:
-                activities_str = "無特別推薦" if len(f["activities"]) == 0 else " | ".join(f["activities"])
-                export_data.append(
-                    {
-                        "日期": f["date"].strftime("%Y-%m-%d"),
-                        "星期": f["weekday"],
-                        "評分": str(int(f["score"])),
-                        "等級": f["level"],
-                        "溫度": f"{f['temp_avg']:.1f}°C",
-                        "降雨": f"{int(f['rain_prob'])}%",
-                        "天氣": f["description"],
-                        "推薦活動": activities_str,
-                    }
-                )
-
-            df = pd.DataFrame(export_data)
-            st.dataframe(df, use_container_width=True)
-
-            csv = df.to_csv(index=False, encoding="utf-8-sig")
-            csv_filename = f"{selected_city}_旅遊規劃_{datetime.now().strftime('%Y%m%d')}.csv"
-            st.download_button(
-                "下載旅遊規劃表 (CSV)",
-                csv,
-                csv_filename,
-                "text/csv",
-                use_container_width=True,
+    # summarize
+    out = []
+    for date_key in sorted(buckets.keys()):
+        for period in ["AM", "PM"]:
+            if period not in buckets[date_key]:
+                continue
+            b = buckets[date_key][period]
+            avg_temp = sum(b["temps"]) / len(b["temps"])
+            rain_prob = sum(b["pop"]) / len(b["pop"])
+            wind = sum(b["wind"]) / len(b["wind"])
+            # most common desc
+            desc_count = {}
+            for d in b["desc"]:
+                desc_count[d] = desc_count.get(d, 0) + 1
+            desc = max(desc_count, key=desc_count.get)
+            out.append(
+                {
+                    "date": date_key,
+                    "period": period,
+                    "avg_temp": avg_temp,
+                    "rain_prob": rain_prob,
+                    "wind": wind,
+                    "desc": desc,
+                }
             )
+    return out
 
-st.markdown("—")
-with st.expander("使用指南"):
-    st.markdown(
-        """
-### 如何使用
-1. 選擇目的地：在左側選擇想去的台灣縣市
-2. 設定天數：選擇 5 天或 10 天預報（10 天會以 5 天資料處理）
-3. 選擇偏好：勾選您喜歡的旅遊活動類型
-4. 調整設定：設定您的溫度偏好和降雨容忍度
-5. 開始規劃：點擊開始規劃旅遊按鈕
 
-### 評分說明
-- 極佳 (80-100分)：天氣絕佳，強烈推薦出遊
-- 良好 (60-79分)：天氣不錯，適合大多數活動
-- 普通 (40-59分)：天氣尚可，建議彈性安排
-- 不佳 (0-39分)：天氣較差，建議改期或室內活動
+def maps_search_link(query: str):
+    # 不用 API key 的 maps 搜尋
+    q = quote_plus(query)
+    return f"https://www.google.com/maps/search/?api=1&query={q}"
 
-### 小技巧
-- 降雨機率 < 30%：通常是好天氣
-- 溫度 20-28°C：最舒適的旅遊溫度
-- 風速 < 8 m/s：適合戶外活動
-- 勾選多種活動類型：獲得更多元的建議
-"""
-    )
 
-st.markdown("—")
-st.caption("台灣天氣旅遊規劃助手 | Made with Streamlit | Powered by OpenWeatherMap")
+def maps_directions_link(origin: str, destination: str, waypoints: str = ""):
+    # 不用 API key 的 directions
+    o = quote_plus(origin)
+    d = quote_plus(destination)
+    url = f"https://www.google.com/maps/dir/?api=1&origin={o}&destination={d}"
+    if waypoints.strip():
+        w = quote_plus(waypoints)
+        url += f"&waypoints={w}"
+    return url
+
+
+def pick_activity(city: str, activity_types, rainy: bool, period: str):
+    # 簡易版：不用外部旅遊 API，先用可點的 maps 搜尋關鍵字組合
+    if rainy:
+        # 雨天：室內/半室內優先
+        candidates = [
+            ("雨天備案：博物館/展覽", f"{city} 博物館 展覽"),
+            ("雨天備案：百貨商場/美食街", f"{city} 百貨 美食街"),
+            ("雨天備案：咖啡廳", f"{city} 咖啡廳"),
+        ]
+    else:
+        # 晴天：依偏好活動給一些關鍵字
+        candidates = []
+        for t in activity_types:
+            if t == "🏖️ 海邊活動":
+                candidates.append(("海邊散步/看海點", f"{city} 海邊 看海"))
+            elif t == "⛰️ 山區健行":
+                candidates.append(("步道/觀景點", f"{city} 步道 觀景台"))
+            elif t == "♨️ 溫泉度假":
+                candidates.append(("溫泉/湯屋", f"{city} 溫泉 湯屋"))
+            elif t == "🛍️ 購物休閒":
+                candidates.append(("商圈/百貨", f"{city} 商圈 百貨"))
+            elif t == "🏛️ 文化古蹟":
+                candidates.append(("古蹟/文化館", f"{city} 古蹟 文化館"))
+            elif t == "🍜 美食探索":
+                candidates.append(("老街/夜市/美食", f"{city} 老街 夜市 美食"))
+
+        if not candidates:
+            candidates = [("隨機推薦：散步+美食", f"{city} 景點 美食")]
+
+    # 小小差異：上午偏戶外、下午偏美食/逛街（簡易策略）
+    if not rainy and period == "PM":
+        candidates = candidates[::-1]
+
+    title, query = candidates[0]
+    return title, query
+
+
+# -----------------------
+# Main
+# -----------------------
+if submitted:
+    if not selected_cities:
+        st.warning("請至少選擇一個城市。")
+        st.stop()
+
+    # /forecast 實際可用天數
+    available_days = 5
+    if forecast_window > 5:
+        st.info("提醒：你選了 10 天，但目前 /forecast 實際約 5 天資料。簡易版先用 5 天做規劃。")
+    if trip_days > available_days:
+        st.warning(f"你要規劃 {trip_days} 天，但目前可用預報約 {available_days} 天。先以 {available_days} 天內做建議。")
+        trip_days = available_days
+
+    tr = temp_range(temp_pref)
+
+    with st.spinner("正在抓取天氣資料並生成上/下半天行程..."):
+        # 簡易版：用第一個城市的預報做日期選擇（之後可升級成多城市各自評分再排）
+        base_city = selected_cities[0]
+        wjson = fetch_forecast(NORTH_TW[base_city]["lat"], NORTH_TW[base_city]["lon"], OW_KEY)
+
+        halfdays = build_halfday_table(wjson, days_limit=available_days)
+
+        # 加上評分
+        scored = []
+        for h in halfdays:
+            s = score_halfday(h["avg_temp"], h["rain_prob"], h["wind"], tr, rain_threshold)
+            scored.append({**h, "score": s})
+
+        # 聚合成「天」：AM/PM 都有時取平均
+        by_date = {}
+        for x in scored:
+            by_date.setdefault(x["date"], {})
+            by_date[x["date"]][x["period"]] = x
+
+        day_scores = []
+        for d, parts in by_date.items():
+            scores = [parts[p]["score"] for p in parts if p in ["AM", "PM"]]
+            if not scores:
+                continue
+            day_scores.append({"date": d, "day_score": sum(scores) / len(scores), "parts": parts})
+
+        # 取最適合的 trip_days 天（再按日期排序呈現）
+        best_days = sorted(day_scores, key=lambda x: x["day_score"], reverse=True)[:trip_days]
+        best_days = sorted(best_days, key=lambda x: x["date"])
+
+    st.success("已完成行程草案（簡易版）。")
+
+    # 路線連結
+    if origin_text.strip() and dest_text.strip():
+        wp = waypoints_text.strip()
+        link = maps_directions_link(origin_text.strip(), dest_text.strip(), wp)
+        st.markdown(f"🚗 **Google Maps 路線導航：** {link}")
+
+    st.markdown("---")
+    st.subheader("你的 N 天游程（上半天 / 下半天）")
+
+    # 多城市簡易分配：輪流
+    def city_for_day(idx):
+        return selected_cities[idx % len(selected_cities)]
+
+    for i, day in enumerate(best_days, start=1):
+        city_today = city_for_day(i - 1)
+        dstr = day["date"]
+        weekday = datetime.strptime(dstr, "%Y-%m-%d").strftime("%a")
+
+        st.markdown(f"### 第 {i} 天：{dstr} ({weekday}) · 主要區域：{city_today}")
+
+        for period in ["AM", "PM"]:
+            part = day["parts"].get(period)
+            if not part:
+                st.write(f"**{period}：**（資料不足，建議彈性安排）")
+                continue
+
+            rainy = part["rain_prob"] >= rain_threshold
+            act_title, act_query = pick_activity(city_today, selected_activity_types, rainy, period)
+            map_link = maps_search_link(act_query)
+
+            tag = "☔ 雨天備案" if rainy else "☀️ 晴天方案"
+            st.markdown(
+                f"- **{period} {tag}**｜{act_title}  "
+                f"<span class='pill'>評分 {int(part['score'])}</span>"
+                f"<span class='pill'>溫 {part['avg_temp']:.1f}°C</span>"
+                f"<span class='pill'>雨 {int(part['rain_prob'])}%</span>"
+                f"<span class='pill'>風 {part['wind']:.1f}m/s</span>",
+                unsafe_allow_html=True,
+            )
+            st.write(f"  天氣：{part['desc']}")
+            st.write(f"  地圖搜尋：{map_link}")
+
+        st.markdown("---")
+
+    st.caption("簡易版說明：目前用第一個城市的預報挑選適合日期，多城市是用輪流分配。下一步可升級成每個城市各自評分後再排最優路線。")
+
+else:
+    st.info("先在左上角（手機）打開側邊欄設定城市與天數，再按「開始規劃」。")
