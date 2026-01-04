@@ -6,9 +6,9 @@ import pandas as pd
 # 頁面設定
 
 st.set_page_config(
-page_title=“台灣天氣旅遊規劃”,
-page_icon=“🗺️”,
-layout=“wide”
+page_title="台灣天氣旅遊規劃",
+page_icon="🗺️",
+layout="wide"
 )
 
 # 自定義樣式
