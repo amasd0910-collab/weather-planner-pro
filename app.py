@@ -115,7 +115,6 @@ st.markdown("---")
 with st.expander("進階設定"):
     show_all_days = st.checkbox("顯示所有天數", value=False)
     sort_by_score = st.checkbox("依適合度排序", value=True)
-```
 
 @st.cache_data(ttl=1800)
 def get_weather_forecast(lat, lon, api_key, days):
@@ -131,7 +130,6 @@ params = {
 url = base_url + "?lat=" + str(lat) + "&lon=" + str(lon) + "&appid=" + api_key + "&units=metric&lang=zh_tw"
 response = requests.get(url, timeout=10)
 
-```
     if response.status_code == 200:
         return response.json()
     else:
@@ -139,7 +137,6 @@ response = requests.get(url, timeout=10)
 except Exception as e:
     st.error("錯誤: " + str(e))
     return None
-```
 
 def parse_temp_preference(pref):
 if pref == "怕熱":
@@ -152,7 +149,6 @@ return (20, 35)
 def calculate_weather_score(temp, rain_prob, wind_speed, temp_range, rain_tolerance):
 score = 100
 
-```
 if temp < temp_range[0]:
     score = score - (temp_range[0] - temp) * 3
 elif temp > temp_range[1]:
@@ -167,13 +163,11 @@ if wind_speed > 10:
     score = score - (wind_speed - 10) * 2
 
 return max(0, min(100, score))
-```
 
 def recommend_activities(score, temp, rain_prob, wind_speed, selected_activities):
 recommendations = []
 reasons = []
 
-```
 if score >= 85:
     level = "極佳"
     base_desc = "天氣極佳！"
@@ -257,7 +251,6 @@ if wind_speed > 12:
     warnings.append("風速較大，戶外活動注意安全")
 
 return level, base_desc, recommendations, reasons, warnings
-```
 
 def process_forecast_data(weather_data, days, temp_range, rain_tolerance, selected_activities):
 daily_data = []
@@ -270,7 +263,6 @@ daily_records = {
 "descriptions": []
 }
 
-```
 max_items = days * 8
 item_count = 0
 
@@ -386,13 +378,11 @@ if len(daily_records["temps"]) > 0:
     })
 
 return daily_data[:days]
-```
 
 if st.button("開始規劃旅遊", type="primary", use_container_width=True):
 city_info = TAIWAN_CITIES[selected_city]
 temp_range = parse_temp_preference(temp_preference)
 
-```
 with st.spinner("正在分析 " + selected_city + " 未來 " + str(forecast_days) + " 天的天氣..."):
     weather_data = get_weather_forecast(city_info["lat"], city_info["lon"], api_key, forecast_days)
     
@@ -528,14 +518,12 @@ with st.spinner("正在分析 " + selected_city + " 未來 " + str(forecast_days
         csv = df.to_csv(index=False, encoding="utf-8-sig")
         csv_filename = selected_city + "_旅遊規劃_" + datetime.now().strftime("%Y%m%d") + ".csv"
         st.download_button("下載旅遊規劃表 (CSV)", csv, csv_filename, "text/csv", use_container_width=True)
-```
 
 st.markdown("—")
 with st.expander("使用指南"):
 st.markdown("""
 ### 如何使用
 
-```
 1. 選擇目的地：在左側選擇想去的台灣縣市
 2. 設定天數：選擇 5 天或 10 天預報
 3. 選擇偏好：勾選您喜歡的旅遊活動類型
@@ -556,7 +544,6 @@ st.markdown("""
 - 風速 < 8 m/s：適合戶外活動
 - 勾選多種活動類型：獲得更多元的建議
 """)
-```
 
 st.markdown("—")
 st.caption("台灣天氣旅遊規劃助手 | Made with Streamlit | Powered by OpenWeatherMap")
