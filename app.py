@@ -61,13 +61,13 @@ ACTIVITY_TYPES = {
 }
 
 try:
-api_key = st.secrets["OPENWEATHER_API_KEY"]
+    api_key = st.secrets["OPENWEATHER_API_KEY"]
 except:
-st.error("系統設定錯誤，請確認 API Key 已正確設定")
-st.stop()
+    st.error("系統設定錯誤，請確認 API Key 已正確設定")
+    st.stop()
 
 with st.sidebar:
-st.header("旅遊偏好設定")
+    st.header("旅遊偏好設定")
 
 ```
 st.subheader("目的地")
