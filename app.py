@@ -76,7 +76,7 @@ except:
 st.error(“❌ 系統設定錯誤，請確認 API Key 已正確設定”)
 st.stop()
 
-# ==================== 側邊欄設定 ====================
+# 側邊欄設定
 
 with st.sidebar:
 st.header(“⚙️ 旅遊偏好設定”)
@@ -136,14 +136,11 @@ with st.expander("🔧 進階設定"):
     sort_by_score = st.checkbox("依適合度排序", value=True)
 ```
 
-# ==================== 核心功能函數 ====================
+# 核心功能函數
 
-@st.cache_data(ttl=1800)  # 快取30分鐘
+@st.cache_data(ttl=1800)
 def get_weather_forecast(lat, lon, api_key, days):
-“”“使用經緯度獲取天氣預報”””
 try:
-# 使用 One Call API 3.0（需要付費）或 5 day forecast（免費）
-# 這裡使用免費的 5 day forecast
 url = f”http://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={api_key}&units=metric&lang=zh_tw”
 response = requests.get(url, timeout=10)
 
@@ -158,32 +155,27 @@ except Exception as e:
 ```
 
 def parse_temp_preference(pref):
-“”“解析溫度偏好”””
 if “怕熱” in pref:
 return (10, 25)
 elif “適中” in pref:
 return (20, 28)
-else:  # 不怕熱
+else:
 return (20, 35)
 
 def calculate_weather_score(temp, rain_prob, wind_speed, temp_range, rain_tolerance):
-“”“計算天氣適合度評分”””
 score = 100
 
 ```
-# 溫度評分（40%權重）
 if temp < temp_range[0]:
     score -= (temp_range[0] - temp) * 3
 elif temp > temp_range[1]:
     score -= (temp - temp_range[1]) * 3
 else:
-    score += 10  # 在範圍內加分
+    score += 10
 
-# 降雨評分（40%權重）
 if rain_prob > rain_tolerance:
     score -= (rain_prob - rain_tolerance) * 1.5
 
-# 風速評分（20%權重）
 if wind_speed > 10:
     score -= (wind_speed - 10) * 2
 
@@ -191,12 +183,10 @@ return max(0, min(100, score))
 ```
 
 def recommend_activities(score, temp, rain_prob, wind_speed, selected_activities):
-“”“根據天氣和偏好推薦活動”””
 recommendations = []
 reasons = []
 
 ```
-# 根據天氣評分給予建議
 if score >= 85:
     level = "🌟 極佳"
     base_desc = "天氣極佳！"
@@ -210,7 +200,6 @@ else:
     level = "😔 不佳"
     base_desc = "天氣較差"
 
-# 根據用戶偏好和天氣條件推薦
 for activity_type in selected_activities:
     if activity_type == "🏖️ 海邊活動":
         if score >= 70 and temp >= 25 and wind_speed < 8:
@@ -256,7 +245,6 @@ for activity_type in selected_activities:
             recommendations.append(f"{activity_type}：{', '.join(ACTIVITY_TYPES[activity_type][:3])}")
             reasons.append("能見度佳，光線充足")
 
-# 如果沒有符合的推薦，給予替代方案
 if not recommendations:
     if rain_prob > 70:
         recommendations.append("🏛️ 室內活動：博物館、購物中心、美食街")
@@ -268,7 +256,6 @@ if not recommendations:
         recommendations.append("🚶 輕鬆活動：咖啡廳、室內景點、購物")
         reasons.append("天氣一般，建議輕鬆行程")
 
-# 特別提醒
 warnings = []
 if rain_prob > 60:
     warnings.append("☔ 建議攜帶雨具")
@@ -283,7 +270,6 @@ return level, base_desc, recommendations, reasons, warnings
 ```
 
 def process_forecast_data(weather_data, days, temp_range, rain_tolerance, selected_activities):
-“”“處理天氣預報資料”””
 daily_data = []
 current_date = None
 daily_records = {
@@ -298,7 +284,6 @@ for item in weather_data['list'][:days * 8]:
     
     if current_date != date:
         if current_date and daily_records['temps']:
-            # 計算當日平均
             avg_temp = sum(daily_records['temps']) / len(daily_records['temps'])
             max_temp = max(daily_records['temps'])
             min_temp = min(daily_records['temps'])
@@ -306,13 +291,11 @@ for item in weather_data['list'][:days * 8]:
             avg_wind = sum(daily_records['wind']) / len(daily_records['wind'])
             avg_humidity = sum(daily_records['humidity']) / len(daily_records['humidity'])
             
-            # 計算評分
             score = calculate_weather_score(
                 avg_temp, avg_rain, avg_wind,
                 temp_range, rain_tolerance
             )
             
-            # 推薦活動
             level, desc, activities, reasons, warnings = recommend_activities(
                 score, avg_temp, avg_rain, avg_wind, selected_activities
             )
@@ -336,21 +319,18 @@ for item in weather_data['list'][:days * 8]:
                 'warnings': warnings
             })
         
-        # 重置
         current_date = date
         daily_records = {
             'temps': [], 'rain': [], 'wind': [],
             'humidity': [], 'descriptions': []
         }
     
-    # 收集資料
     daily_records['temps'].append(item['main']['temp'])
     daily_records['rain'].append(item.get('pop', 0))
     daily_records['wind'].append(item['wind']['speed'])
     daily_records['humidity'].append(item['main']['humidity'])
     daily_records['descriptions'].append(item['weather'][0]['description'])
 
-# 處理最後一天
 if daily_records['temps']:
     avg_temp = sum(daily_records['temps']) / len(daily_records['temps'])
     max_temp = max(daily_records['temps'])
@@ -390,7 +370,7 @@ if daily_records['temps']:
 return daily_data[:days]
 ```
 
-# ==================== 主要執行 ====================
+# 主要執行
 
 if st.button(“🚀 開始規劃旅遊”, type=“primary”, use_container_width=True):
 city_info = TAIWAN_CITIES[selected_city]
@@ -414,19 +394,15 @@ with st.spinner(f"正在分析 {selected_city} 未來 {forecast_days} 天的天�
             selected_activities
         )
         
-        # 排序
         if sort_by_score:
             sorted_forecasts = sorted(forecasts, key=lambda x: x['score'], reverse=True)
         else:
             sorted_forecasts = forecasts
         
-        # 過濾
         if not show_all_days:
             display_forecasts = [f for f in sorted_forecasts if f['score'] >= 40]
         else:
             display_forecasts = sorted_forecasts
-        
-        # ==================== 顯示結果 ====================
         
         st.success(f"✅ 已完成 {selected_city} 的旅遊規劃分析！")
         
@@ -473,7 +449,6 @@ with st.spinner(f"正在分析 {selected_city} 未來 {forecast_days} 天的天�
             st.warning("😔 根據您的偏好，這段期間沒有特別推薦的日期。建議調整偏好設定或查看所有天數。")
         else:
             for i, forecast in enumerate(display_forecasts, 1):
-                # 評分顏色
                 if forecast['score'] >= 80:
                     color = "🟢"
                 elif forecast['score'] >= 60:
@@ -488,7 +463,6 @@ with st.spinner(f"正在分析 {selected_city} 未來 {forecast_days} 天的天�
                     f"{forecast['level']} (評分 {forecast['score']:.0f})",
                     expanded=(i <= 2)
                 ):
-                    # 天氣資訊
                     col1, col2, col3, col4 = st.columns(4)
                     
                     with col1:
@@ -506,13 +480,11 @@ with st.spinner(f"正在分析 {selected_city} 未來 {forecast_days} 天的天�
                     
                     st.write(f"**天氣：** {forecast['description']} | {forecast['desc']}")
                     
-                    # 警告
                     if forecast['warnings']:
                         st.warning("⚠️ **注意事項**")
                         for warning in forecast['warnings']:
                             st.write(f"- {warning}")
                     
-                    # 推薦活動
                     if forecast['activities']:
                         st.success("✨ **推薦行程**")
                         for activity, reason in zip(forecast['activities'], forecast['reasons']):
