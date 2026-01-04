@@ -69,7 +69,6 @@ except:
 with st.sidebar:
     st.header("旅遊偏好設定")
 
-```
 st.subheader("目的地")
 selected_city = st.selectbox(
     "選擇縣市",
